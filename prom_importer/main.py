@@ -6,8 +6,8 @@ import logging
 from typing import Any
 
 from .config import load_settings
+from .feed_generator import PromFeedGenerator
 from .logger import configure_logging
-from .prom_service import PromService
 from .sheets_service import SheetsService
 
 LOGGER = logging.getLogger(__name__)
@@ -23,16 +23,14 @@ def main() -> None:
         service_account_file=str(settings.service_account_file),
         sheet_id=settings.sheet_id,
     )
-    prom_service = PromService(api_token=settings.prom_api_token)
+    feed_generator = PromFeedGenerator()
 
     products = sheets_service.fetch_products()
     LOGGER.info("Parsed %d product(s).", len(products))
 
-    for product in products:
-        payload: dict[str, Any] = product.to_dict()
-        LOGGER.info("Sending product row=%d payload=%s", product.row_number, payload)
-        result = prom_service.create_product(payload)
-        LOGGER.info("Created product row=%d result=%s", product.row_number, result)
+    payloads: list[dict[str, Any]] = [product.to_dict() for product in products]
+    feed_generator.generate(payloads, output_path="prom_feed.xml")
+    LOGGER.info("Feed generation completed successfully.")
 
 
 if __name__ == "__main__":

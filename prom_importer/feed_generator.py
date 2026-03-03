@@ -20,6 +20,18 @@ class PromFeedGenerator:
 
     def generate(self, products: list[dict[str, Any]], output_path: str) -> None:
         """Generate and persist a Prom.ua feed as pretty-formatted XML."""
+        xml_bytes = self.generate_xml_bytes(products)
+        target_path = Path(output_path)
+        target_path.write_bytes(xml_bytes)
+
+        LOGGER.info("Prom feed generated: %s (offers=%d)", target_path, len(products))
+
+    def generate_xml_bytes(self, products: list[dict[str, Any]]) -> bytes:
+        """Generate a pretty-formatted YML XML payload in memory."""
+        tree = self._build_tree(products)
+        return ET.tostring(tree.getroot(), encoding="utf-8", xml_declaration=True)
+
+    def _build_tree(self, products: list[dict[str, Any]]) -> ET.ElementTree:
         root = ET.Element(
             "yml_catalog", {"date": datetime.now().strftime("%Y-%m-%d %H:%M")}
         )
@@ -54,8 +66,4 @@ class PromFeedGenerator:
 
         tree = ET.ElementTree(root)
         ET.indent(tree, space="  ")
-
-        target_path = Path(output_path)
-        tree.write(target_path, encoding="utf-8", xml_declaration=True)
-
-        LOGGER.info("Prom feed generated: %s (offers=%d)", target_path, len(products))
+        return tree

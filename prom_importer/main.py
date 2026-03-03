@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from .config import load_settings
 from .logger import configure_logging
+from .prom_service import PromService
 from .sheets_service import SheetsService
 
 LOGGER = logging.getLogger(__name__)
@@ -17,16 +19,20 @@ def main() -> None:
     configure_logging()
     settings = load_settings()
 
-    service = SheetsService(
+    sheets_service = SheetsService(
         service_account_file=str(settings.service_account_file),
         sheet_id=settings.sheet_id,
     )
+    prom_service = PromService(api_token=settings.prom_api_token)
 
-    products = service.fetch_products()
+    products = sheets_service.fetch_products()
     LOGGER.info("Parsed %d product(s).", len(products))
 
     for product in products:
-        LOGGER.info("Product row=%d payload=%s", product.row_number, product.to_dict())
+        payload: dict[str, Any] = product.to_dict()
+        LOGGER.info("Sending product row=%d payload=%s", product.row_number, payload)
+        result = prom_service.create_product(payload)
+        LOGGER.info("Created product row=%d result=%s", product.row_number, result)
 
 
 if __name__ == "__main__":
